@@ -14,6 +14,13 @@ import {
   ContactMessage
 } from '../types';
 import { INITIAL_PORTFOLIO_DATA } from '../data/initialData';
+import {
+  insertMessageToSupabase,
+  fetchDataFromSupabase,
+  syncDataToSupabase,
+  fetchMessagesFromSupabase,
+  isSupabaseConfigured
+} from '../utils/supabaseClient';
 
 const STORAGE_KEY = 'din_portfolio_data_v2';
 const THEME_KEY = 'din_portfolio_theme_v1';
@@ -247,7 +254,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [theme]);
 
-  // Persist data whenever it changes
+  // Persist data whenever it changes locally
   useEffect(() => {
     try {
       safeStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -255,6 +262,70 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       console.error('Failed to save portfolio data to storage', e);
     }
   }, [data]);
+
+  // Load initial data from Supabase if configured so site is dynamically updated globally for all visitors
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    let isMounted = true;
+    fetchDataFromSupabase()
+      .then(res => {
+        if (isMounted && res.success && res.data) {
+          setData(prev => {
+            const cloud = res.data!;
+            return {
+              ...prev,
+              ...cloud,
+              profile: { ...prev.profile, ...(cloud.profile || {}) },
+              metrics: cloud.metrics?.length ? cloud.metrics : prev.metrics,
+              skills: cloud.skills?.length ? cloud.skills : prev.skills,
+              projects: cloud.projects?.length ? cloud.projects : prev.projects,
+              experience: cloud.experience?.length ? cloud.experience : prev.experience,
+              education: cloud.education?.length ? cloud.education : prev.education,
+              articles: cloud.articles?.length ? cloud.articles : prev.articles,
+              books: cloud.books?.length ? cloud.books : prev.books,
+              gallery: cloud.gallery?.length ? cloud.gallery : prev.gallery,
+            };
+          });
+        }
+      })
+      .catch(err => {
+        console.warn('Could not load data from Supabase:', err);
+      });
+
+    // Also fetch any incoming contact messages from Supabase
+    fetchMessagesFromSupabase()
+      .then(cloudMsgs => {
+        if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
+          setData(prev => {
+            const existingIds = new Set(prev.messages.map(m => m.id));
+            const newMsgs = cloudMsgs.filter(m => !existingIds.has(m.id));
+            if (newMsgs.length > 0) {
+              return {
+                ...prev,
+                messages: [...newMsgs, ...prev.messages]
+              };
+            }
+            return prev;
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // When admin makes changes, automatically sync to Supabase in background
+  useEffect(() => {
+    if (isAuthenticated && isSupabaseConfigured()) {
+      const timer = setTimeout(() => {
+        syncDataToSupabase(data).catch(() => {});
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [data, isAuthenticated]);
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
@@ -477,6 +548,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       read: false
     };
     setData(prev => ({ ...prev, messages: [newMsg, ...prev.messages] }));
+    // Asynchronously insert into Supabase if configured
+    insertMessageToSupabase(newMsg).catch(() => {});
   };
 
   const markMessageRead = (id: string) => {

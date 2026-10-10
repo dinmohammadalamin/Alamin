@@ -9,6 +9,7 @@ import { BooksEditor } from './BooksEditor';
 import { GalleryEditor } from './GalleryEditor';
 import { MessagesInbox } from './MessagesInbox';
 import { SettingsBackup } from './SettingsBackup';
+import { SupabaseEditor } from './SupabaseEditor';
 import {
   Lock,
   Unlock,
@@ -22,6 +23,7 @@ import {
   FileText,
   Mail,
   Settings,
+  Database,
   LayoutDashboard,
   Eye,
   EyeOff,
@@ -41,6 +43,7 @@ type AdminTab =
   | 'books'
   | 'gallery'
   | 'messages'
+  | 'supabase'
   | 'settings';
 
 export const AdminModal: React.FC = () => {
@@ -301,6 +304,18 @@ export const AdminModal: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setActiveTab('supabase')}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'supabase'
+                    ? 'bg-emerald-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Database className="w-4 h-4 text-emerald-400" />
+                <span>Supabase Sync</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('settings')}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
                   activeTab === 'settings'
@@ -429,6 +444,7 @@ export const AdminModal: React.FC = () => {
               {activeTab === 'books' && <BooksEditor />}
               {activeTab === 'gallery' && <GalleryEditor />}
               {activeTab === 'messages' && <MessagesInbox />}
+              {activeTab === 'supabase' && <SupabaseEditor />}
               {activeTab === 'settings' && <SettingsBackup />}
             </main>
           </div>
