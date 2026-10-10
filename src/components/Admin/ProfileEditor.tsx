@@ -1,19 +1,27 @@
 import React, { useState } from 'react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { ProfileData } from '../../types';
-import { Save, Check, RefreshCw } from 'lucide-react';
+import { Save, Check, RefreshCw, AlertCircle, Database, Cloud } from 'lucide-react';
 import { ImageUploader } from './ImageUploader';
 
 export const ProfileEditor: React.FC = () => {
-  const { data, updateProfile } = usePortfolio();
+  const { data, updateProfile, cloudSyncStatus, cloudSyncError, lastCloudSyncTime, syncNow } = usePortfolio();
   const [profile, setProfile] = useState<ProfileData>(data.profile);
   const [typingRolesInput, setTypingRolesInput] = useState(
     profile.typingRoles ? profile.typingRoles.join(', ') : ''
   );
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<{
+    success: boolean;
+    cloudSynced: boolean;
+    message: string;
+  } | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    setSaveFeedback(null);
+
     const updatedRoles = typingRolesInput
       .split(',')
       .map(r => r.trim())
@@ -24,9 +32,33 @@ export const ProfileEditor: React.FC = () => {
       typingRoles: updatedRoles.length > 0 ? updatedRoles : profile.typingRoles
     };
 
+    // 1. Update in local state
     updateProfile(newProfile);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+
+    // 2. Trigger instant cloud sync
+    const syncRes = await syncNow();
+
+    if (syncRes.success) {
+      setSaveFeedback({
+        success: true,
+        cloudSynced: true,
+        message: 'প্রোফাইল সফলভাবে আপডেট হয়েছে এবং Supabase Cloud-এ সেভ হয়েছে! অন্য ব্রাউজারেও এখন আপডেট দেখাবে।'
+      });
+    } else if (cloudSyncStatus === 'not_configured') {
+      setSaveFeedback({
+        success: true,
+        cloudSynced: false,
+        message: 'প্রোফাইল এই ব্রাউজারে সেভ হয়েছে। অন্য ব্রাউজারে স্বয়ংক্রিয়ভাবে আপডেট দেখতে Supabase Sync ট্যাবে গিয়ে Supabase কানেক্ট করুন।'
+      });
+    } else {
+      setSaveFeedback({
+        success: true,
+        cloudSynced: false,
+        message: `প্রোফাইল লোকালি সেভ হয়েছে, কিন্তু Supabase Cloud-এ সেভ হতে পারেনি: ${syncRes.message} (দয়া করে Supabase Sync ট্যাবে গিয়ে SQL রান করুন)।`
+      });
+    }
+
+    setSaving(false);
   };
 
   return (
@@ -40,17 +72,47 @@ export const ProfileEditor: React.FC = () => {
         </div>
         <button
           type="submit"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all"
+          disabled={saving}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
         >
-          {savedSuccess ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          <span>{savedSuccess ? 'Changes Saved!' : 'Save Changes'}</span>
+          {saving ? (
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          ) : saveFeedback?.success ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          <span>
+            {saving
+              ? 'Saving & Syncing...'
+              : saveFeedback?.success
+              ? 'Changes Saved!'
+              : 'Save Changes'}
+          </span>
         </button>
       </div>
 
-      {savedSuccess && (
-        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
-          <Check className="w-4 h-4" />
-          <span>Profile updated successfully! Live portfolio reflects all changes immediately.</span>
+      {saveFeedback && (
+        <div
+          className={`p-3.5 rounded-xl text-xs flex items-start gap-2.5 ${
+            saveFeedback.cloudSynced
+              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+              : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+          }`}
+        >
+          {saveFeedback.cloudSynced ? (
+            <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+          )}
+          <div className="flex-1">
+            <p className="font-semibold">
+              {saveFeedback.cloudSynced ? 'Cloud Synced Successfully' : 'Local Save Only'}
+            </p>
+            <p className="mt-0.5 text-[11px] opacity-90 leading-relaxed">
+              {saveFeedback.message}
+            </p>
+          </div>
         </div>
       )}
 
@@ -186,10 +248,11 @@ export const ProfileEditor: React.FC = () => {
       <div className="flex justify-end pt-3">
         <button
           type="submit"
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20"
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 cursor-pointer transition-all"
         >
-          <Save className="w-4 h-4" />
-          <span>Save Profile Changes</span>
+          {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          <span>{saving ? 'Saving & Syncing...' : 'Save Profile Changes'}</span>
         </button>
       </div>
     </form>

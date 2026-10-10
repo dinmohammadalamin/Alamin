@@ -6,6 +6,8 @@ import {
   testSupabaseConnection,
   syncDataToSupabase,
   fetchDataFromSupabase,
+  inspectSupabaseRecords,
+  DatabaseInspectionResult,
   SUPABASE_SQL_SCHEMA,
   isSupabaseConfigured
 } from '../../utils/supabaseClient';
@@ -21,7 +23,10 @@ import {
   RefreshCw,
   Key,
   ShieldCheck,
-  Code
+  Code,
+  Search,
+  Globe,
+  Info
 } from 'lucide-react';
 
 export const SupabaseEditor: React.FC = () => {
@@ -35,6 +40,8 @@ export const SupabaseEditor: React.FC = () => {
   const [pulling, setPulling] = useState(false);
   const [testResult, setTestResult] = useState<{ success?: boolean; message?: string } | null>(null);
   const [syncResult, setSyncResult] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  const [inspectionResult, setInspectionResult] = useState<DatabaseInspectionResult | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSql, setShowSql] = useState(false);
 
@@ -59,6 +66,14 @@ export const SupabaseEditor: React.FC = () => {
     const res = await testSupabaseConnection();
     setTestResult(res);
     setTesting(false);
+  };
+
+  const handleInspectData = async () => {
+    setInspecting(true);
+    setInspectionResult(null);
+    const res = await inspectSupabaseRecords();
+    setInspectionResult(res);
+    setInspecting(false);
   };
 
   const handlePushData = async () => {
@@ -277,6 +292,111 @@ export const SupabaseEditor: React.FC = () => {
             <span>{syncResult.message}</span>
           </div>
         )}
+      </div>
+
+      {/* Database Verification & Content Inspector */}
+      <div className="p-4 sm:p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <Search className="w-4 h-4 text-emerald-400" />
+              ডাটাবেসে ডাটা আছে কি না চেক করুন (Live Database Inspector)
+            </h4>
+            <p className="text-xs text-slate-400 mt-1">
+              এক ক্লিকে যাচাই করুন Supabase ক্লাউডে আপনার <code className="text-emerald-300">portfolio_data</code> টেবিলে ডাটা জমা হয়েছে কি না।
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleInspectData}
+            disabled={inspecting || !configured}
+            className="px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-medium transition-colors flex items-center gap-2 disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${inspecting ? 'animate-spin text-emerald-400' : ''}`} />
+            <span>{inspecting ? 'যাচাই করা হচ্ছে...' : 'Check Database Now'}</span>
+          </button>
+        </div>
+
+        {/* Inspection Result Box */}
+        {inspectionResult && (
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div className="flex items-center gap-2 text-xs">
+              {inspectionResult.rowExists ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              )}
+              <span className={`font-semibold ${inspectionResult.rowExists ? 'text-emerald-300' : 'text-amber-300'}`}>
+                {inspectionResult.message}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-1 text-xs">
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
+                <span className="text-[10px] text-slate-400 uppercase font-mono block">portfolio_data টেবিল</span>
+                <span className={`font-mono font-bold ${inspectionResult.tableExists ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {inspectionResult.tableExists ? '✅ Found' : '❌ Not Found'}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
+                <span className="text-[10px] text-slate-400 uppercase font-mono block">সংরক্ষিত প্রোফাইল নাম</span>
+                <span className="font-mono font-bold text-slate-200 truncate block">
+                  {inspectionResult.profileName || '—'}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
+                <span className="text-[10px] text-slate-400 uppercase font-mono block">প্রোফাইল ছবি স্ট্যাটাস</span>
+                <span className="font-mono font-bold text-slate-200 truncate block">
+                  {inspectionResult.avatarUrl || '—'}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
+                <span className="text-[10px] text-slate-400 uppercase font-mono block">সর্বশেষ ক্লাউড আপডেট</span>
+                <span className="font-mono font-bold text-slate-200 truncate block">
+                  {inspectionResult.updatedAt || '—'}
+                </span>
+              </div>
+            </div>
+
+            {inspectionResult.errorCode === '42501' && (
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs space-y-1.5">
+                <p className="font-bold">⚠️ Error 42501 (Permission Denied) শনাক্ত হয়েছে:</p>
+                <p className="text-[11px] opacity-90">
+                  Supabase RLS পলিসি ডেটা লিখতে বাধা দিচ্ছে। নিচের "SQL Schema" কোডটি কপি করে Supabase SQL Editor-এ রান করলে এই এরর চিরতরে সমাধান হয়ে যাবে।
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopySql}
+                  className="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 text-xs font-semibold"
+                >
+                  {copiedSql ? 'কপি হয়েছে!' : 'Fix SQL কোড কপি করুন'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Cross-Browser Sync Explanation */}
+      <div className="p-4 sm:p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+        <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+          <Globe className="w-4 h-4 text-cyan-400" />
+          কেন অন্য ব্রাউজারে বা মোবাইলে আপডেট দেখতে পাচ্ছেন না? (Cross-Device Explanation)
+        </h4>
+        <div className="text-xs text-slate-300 space-y-2 leading-relaxed">
+          <p>
+            ১. <strong className="text-white">ব্রাউজার লোকাল স্টোরেজ সীমাবদ্ধতা:</strong> আপনি যখন এখানে Supabase URL ও Key সেভ করেন, তা শুধুমাত্র আপনার <em>বর্তমান ব্রাউজারের</em> মেমরিতে থাকে। অন্য ব্রাউজার বা মোবাইল ডিভাইসে এগুলো খালি থাকে।
+          </p>
+          <p>
+            ২. <strong className="text-white">সবার জন্য অটো-আপডেট কীভাবে চালু করবেন?</strong> প্রজেক্টের <code className="text-cyan-300 bg-slate-800 px-1 py-0.5 rounded">.env</code> ফাইলে অথবা হোস্টিংয়ের Environment Variables-এ <code className="text-cyan-300 bg-slate-800 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> এবং <code className="text-cyan-300 bg-slate-800 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> যোগ করে রি-বিল্ড করলে পৃথিবীর যে-কোনো ব্রাউজার ও ডিভাইস সরাসরি Supabase থেকে লাইভ ডাটা লোড করবে!
+          </p>
+          <p className="text-[11px] text-slate-400 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
+            💡 <strong>টিপস:</strong> আপনি যদি অন্য ব্রাউজারেও টেস্ট করতে চান, তাহলে সেই ব্রাউজারে গিয়েও অ্যাডমিন প্যানেল খুলে (<code className="text-emerald-400">#admin</code>) একবার আপনার Supabase URL ও Key দিয়ে "Save Credentials" দিলেই সেই ব্রাউজার সাথে সাথে ক্লাউড থেকে সব ডেটা টেনে নেবে!
+          </p>
+        </div>
       </div>
 
       {/* SQL Schema Script Section */}

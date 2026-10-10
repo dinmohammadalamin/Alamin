@@ -127,6 +127,12 @@ interface PortfolioContextType {
   resetToDefault: () => void;
   exportJSON: () => string;
   importJSON: (jsonStr: string) => { success: boolean; error?: string };
+
+  // Supabase Cloud Sync Telemetry
+  cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error' | 'not_configured';
+  cloudSyncError: string | null;
+  lastCloudSyncTime: string | null;
+  syncNow: () => Promise<{ success: boolean; message: string }>;
 }
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
@@ -185,6 +191,41 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return safeStorage.getItem(AUTH_SESSION_KEY) === 'true';
   });
+
+  // Supabase Cloud Sync Telemetry State
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error' | 'not_configured'>(() => {
+    return isSupabaseConfigured() ? 'idle' : 'not_configured';
+  });
+  const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(null);
+
+  const syncNow = async (): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured()) {
+      setCloudSyncStatus('not_configured');
+      const msg = 'Supabase is not configured yet in this browser. Please configure credentials in Supabase tab.';
+      setCloudSyncError(msg);
+      return { success: false, message: msg };
+    }
+    setCloudSyncStatus('syncing');
+    setCloudSyncError(null);
+    try {
+      const res = await syncDataToSupabase(data);
+      if (res.success) {
+        setCloudSyncStatus('synced');
+        setLastCloudSyncTime(new Date().toLocaleTimeString());
+        setCloudSyncError(null);
+      } else {
+        setCloudSyncStatus('error');
+        setCloudSyncError(res.message);
+      }
+      return res;
+    } catch (e: any) {
+      const msg = e?.message || 'Sync failed';
+      setCloudSyncStatus('error');
+      setCloudSyncError(msg);
+      return { success: false, message: msg };
+    }
+  };
 
   const openCvModal = () => setIsCvModalOpen(true);
   const closeCvModal = () => setIsCvModalOpen(false);
@@ -319,9 +360,29 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // When admin makes changes, automatically sync to Supabase in background
   useEffect(() => {
-    if (isAuthenticated && isSupabaseConfigured()) {
+    if (!isSupabaseConfigured()) {
+      setCloudSyncStatus('not_configured');
+      return;
+    }
+
+    if (isAuthenticated) {
+      setCloudSyncStatus('syncing');
       const timer = setTimeout(() => {
-        syncDataToSupabase(data).catch(() => {});
+        syncDataToSupabase(data)
+          .then(res => {
+            if (res.success) {
+              setCloudSyncStatus('synced');
+              setLastCloudSyncTime(new Date().toLocaleTimeString());
+              setCloudSyncError(null);
+            } else {
+              setCloudSyncStatus('error');
+              setCloudSyncError(res.message);
+            }
+          })
+          .catch(err => {
+            setCloudSyncStatus('error');
+            setCloudSyncError(err?.message || 'Sync failed');
+          });
       }, 1500);
       return () => clearTimeout(timer);
     }
@@ -651,6 +712,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         resetToDefault,
         exportJSON,
         importJSON,
+        cloudSyncStatus,
+        cloudSyncError,
+        lastCloudSyncTime,
+        syncNow,
       }}
     >
       {children}

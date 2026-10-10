@@ -30,7 +30,9 @@ import {
   LogOut,
   Sparkles,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 
 type AdminTab =
@@ -53,7 +55,11 @@ export const AdminModal: React.FC = () => {
     isAuthenticated,
     loginAdmin,
     logoutAdmin,
-    data
+    data,
+    cloudSyncStatus,
+    cloudSyncError,
+    lastCloudSyncTime,
+    syncNow
   } = usePortfolio();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -93,6 +99,32 @@ export const AdminModal: React.FC = () => {
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   Dynamic Engine
                 </span>
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('supabase')}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all cursor-pointer flex items-center gap-1 ${
+                      cloudSyncStatus === 'synced'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                        : cloudSyncStatus === 'error'
+                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20 animate-pulse'
+                        : cloudSyncStatus === 'syncing'
+                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                        : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                    }`}
+                    title="Click to manage Supabase cloud connection"
+                  >
+                    <span>
+                      {cloudSyncStatus === 'synced'
+                        ? '🟢 Cloud: Synced'
+                        : cloudSyncStatus === 'syncing'
+                        ? '🔄 Cloud: Syncing'
+                        : cloudSyncStatus === 'error'
+                        ? '🔴 Cloud: Error'
+                        : '🟡 Cloud: Offline'}
+                    </span>
+                  </button>
+                )}
               </div>
               <p className="text-xs text-slate-400">
                 {isAuthenticated ? 'Authenticated Admin Session' : 'Security Verification Required'}
@@ -420,18 +452,73 @@ export const AdminModal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Sync status */}
-                  <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 text-emerald-400 font-mono">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Persistent Storage Engine: Active & Synchronized</span>
+                  {/* Dynamic Cloud Sync Status Banner */}
+                  <div className={`p-4 rounded-2xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    cloudSyncStatus === 'synced'
+                      ? 'bg-emerald-950/20 border-emerald-500/30'
+                      : cloudSyncStatus === 'syncing'
+                      ? 'bg-blue-950/20 border-blue-500/30'
+                      : cloudSyncStatus === 'error'
+                      ? 'bg-rose-950/20 border-rose-500/30'
+                      : 'bg-amber-950/20 border-amber-500/30'
+                  }`}>
+                    <div className="flex items-center gap-2.5 font-mono">
+                      {cloudSyncStatus === 'synced' && (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span className="text-emerald-300">
+                            Supabase Cloud: Synced & Active {lastCloudSyncTime ? `(${lastCloudSyncTime})` : ''}
+                          </span>
+                        </>
+                      )}
+                      {cloudSyncStatus === 'syncing' && (
+                        <>
+                          <RefreshCw className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+                          <span className="text-blue-300">Supabase Cloud: Syncing changes...</span>
+                        </>
+                      )}
+                      {cloudSyncStatus === 'error' && (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <span className="text-rose-300">
+                            Cloud Sync Failed: {cloudSyncError || 'Check Supabase tab'}
+                          </span>
+                        </>
+                      )}
+                      {cloudSyncStatus === 'not_configured' && (
+                        <>
+                          <Database className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span className="text-amber-300">
+                            Supabase Not Configured (Saved in this browser only)
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <button
-                      onClick={() => setIsAdminOpen(false)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold"
-                    >
-                      View Live Portfolio
-                    </button>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {cloudSyncStatus === 'error' || cloudSyncStatus === 'not_configured' ? (
+                        <button
+                          onClick={() => setActiveTab('supabase')}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-colors cursor-pointer text-xs"
+                        >
+                          Fix in Supabase Tab
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => syncNow()}
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition-colors cursor-pointer text-xs"
+                        >
+                          Sync Now
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => setIsAdminOpen(false)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-xs transition-colors"
+                      >
+                        Preview Portfolio
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
