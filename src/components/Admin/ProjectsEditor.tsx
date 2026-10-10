@@ -197,7 +197,7 @@ export const ProjectsEditor: React.FC = () => {
                 onChange={url => setFormState({ ...formState, imageUrl: url })}
                 label="Project Screenshot / Cover Image"
                 description="Upload an image from your device, or paste a URL."
-                maxDimension={600}
+                maxDimension={1200}
               />
             </div>
 

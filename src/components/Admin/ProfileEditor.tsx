@@ -219,9 +219,9 @@ export const ProfileEditor: React.FC = () => {
         <ImageUploader
           value={profile.avatarUrl}
           onChange={url => setProfile({ ...profile, avatarUrl: url })}
-          label="Profile Picture / Avatar"
-          description="Upload a photo from your computer or phone (PNG, JPG, WebP), or paste an online URL."
-          maxDimension={500}
+          label="Profile Picture / Avatar (Ultra HD Sharpness)"
+          description="Upload high-res photo (PNG, JPG, WebP) or paste an image URL. Crystal-clear 1400px HD resolution."
+          maxDimension={1400}
         />
       </div>
 

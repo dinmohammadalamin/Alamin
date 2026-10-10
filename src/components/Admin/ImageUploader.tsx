@@ -10,10 +10,11 @@ interface ImageUploaderProps {
 }
 
 /**
- * Resizes and compresses an image client-side to fit nicely into local state
- * without overflowing localStorage quotas.
+ * Resizes and compresses an image with multi-step high-quality downsampling.
+ * Keeps resolution high (up to 1400px) so photos stay crystal-clear and razor-sharp
+ * on Retina, 4K, and mobile screens without blurriness or compression artifacts.
  */
-function compressImage(file: File, maxDim: number = 500): Promise<string> {
+function compressImage(file: File, maxDim: number = 1400): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -22,35 +23,72 @@ function compressImage(file: File, maxDim: number = 500): Promise<string> {
         let width = img.width;
         let height = img.height;
 
-        if (width > height) {
-          if (width > maxDim) {
+        // If image exceeds maxDim, calculate scaled dimensions
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
             height = Math.round((height * maxDim) / width);
             width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
+          } else {
             width = Math.round((width * maxDim) / height);
             height = maxDim;
           }
         }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
+        // Use multi-step downsampling for extreme scale-downs to prevent blurring/aliasing
+        let curCanvas = document.createElement('canvas');
+        curCanvas.width = img.width;
+        curCanvas.height = img.height;
+        let curCtx = curCanvas.getContext('2d');
+        if (!curCtx) {
           resolve(e.target?.result as string);
           return;
         }
+        curCtx.drawImage(img, 0, 0);
 
-        // Smooth image rendering
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
+        let curW = img.width;
+        let curH = img.height;
 
-        // Compress as JPEG
-        const compressed = canvas.toDataURL('image/jpeg', 0.85);
-        resolve(compressed);
+        // Step down by half if target is less than 50% of current dimension to preserve micro-contrast and sharpness
+        while (curW / 2 > width && curH / 2 > height) {
+          curW = Math.round(curW / 2);
+          curH = Math.round(curH / 2);
+          const stepCanvas = document.createElement('canvas');
+          stepCanvas.width = curW;
+          stepCanvas.height = curH;
+          const stepCtx = stepCanvas.getContext('2d');
+          if (stepCtx) {
+            stepCtx.imageSmoothingEnabled = true;
+            stepCtx.imageSmoothingQuality = 'high';
+            stepCtx.drawImage(curCanvas, 0, 0, curW, curH);
+            curCanvas = stepCanvas;
+          }
+        }
+
+        // Render to final canvas at target crisp resolution
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = width;
+        finalCanvas.height = height;
+        const finalCtx = finalCanvas.getContext('2d');
+        if (!finalCtx) {
+          resolve(curCanvas.toDataURL('image/jpeg', 0.92));
+          return;
+        }
+
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+        finalCtx.drawImage(curCanvas, 0, 0, width, height);
+
+        // Prefer modern WebP at 0.92 quality for pristine clarity with compact size; fallback to JPEG
+        let dataUrl = '';
+        try {
+          dataUrl = finalCanvas.toDataURL('image/webp', 0.92);
+          if (!dataUrl.startsWith('data:image/webp')) {
+            dataUrl = finalCanvas.toDataURL('image/jpeg', 0.92);
+          }
+        } catch {
+          dataUrl = finalCanvas.toDataURL('image/jpeg', 0.92);
+        }
+        resolve(dataUrl);
       };
       img.onerror = () => reject(new Error('Failed to load image file'));
       img.src = e.target?.result as string;
@@ -65,7 +103,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   onChange,
   label = 'Profile Picture / Avatar',
   description = 'Upload from your device (PNG, JPG, WebP) or paste an image URL.',
-  maxDimension = 500
+  maxDimension = 1400
 }) => {
   const [mode, setMode] = useState<'upload' | 'url'>('upload');
   const [urlInput, setUrlInput] = useState(value && !value.startsWith('data:') ? value : '');
