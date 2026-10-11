@@ -81,9 +81,9 @@ interface PortfolioContextType {
   deleteSkill: (id: string) => void;
   
   // Projects
-  addProject: (project: Omit<ProjectItem, 'id'>) => void;
-  updateProject: (id: string, project: Partial<ProjectItem>) => void;
-  deleteProject: (id: string) => void;
+  addProject: (project: Omit<ProjectItem, 'id'>) => Promise<{ success: boolean; message: string }>;
+  updateProject: (id: string, project: Partial<ProjectItem>) => Promise<{ success: boolean; message: string }>;
+  deleteProject: (id: string) => Promise<{ success: boolean; message: string }>;
   
   // Experience
   addExperience: (exp: Omit<ExperienceItem, 'id'>) => void;
@@ -132,7 +132,7 @@ interface PortfolioContextType {
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error' | 'not_configured';
   cloudSyncError: string | null;
   lastCloudSyncTime: string | null;
-  syncNow: () => Promise<{ success: boolean; message: string }>;
+  syncNow: (overrideData?: PortfolioData) => Promise<{ success: boolean; message: string }>;
 }
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
@@ -153,17 +153,17 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ...INITIAL_PORTFOLIO_DATA,
           ...parsed,
           profile: mergedProfile,
-          metrics: Array.isArray(parsed?.metrics) && parsed.metrics.length > 0 ? parsed.metrics : INITIAL_PORTFOLIO_DATA.metrics,
-          skills: Array.isArray(parsed?.skills) && parsed.skills.length > 0 ? parsed.skills : INITIAL_PORTFOLIO_DATA.skills,
-          services: Array.isArray(parsed?.services) && parsed.services.length > 0 ? parsed.services : INITIAL_PORTFOLIO_DATA.services,
-          projects: Array.isArray(parsed?.projects) && parsed.projects.length > 0 ? parsed.projects : INITIAL_PORTFOLIO_DATA.projects,
-          experience: Array.isArray(parsed?.experience) && parsed.experience.length > 0 ? parsed.experience : INITIAL_PORTFOLIO_DATA.experience,
-          education: Array.isArray(parsed?.education) && parsed.education.length > 0 ? parsed.education : INITIAL_PORTFOLIO_DATA.education,
-          books: Array.isArray(parsed?.books) && parsed.books.length > 0 ? parsed.books : INITIAL_PORTFOLIO_DATA.books,
-          articles: Array.isArray(parsed?.articles) && parsed.articles.length > 0
+          metrics: Array.isArray(parsed?.metrics) ? parsed.metrics : INITIAL_PORTFOLIO_DATA.metrics,
+          skills: Array.isArray(parsed?.skills) ? parsed.skills : INITIAL_PORTFOLIO_DATA.skills,
+          services: Array.isArray(parsed?.services) ? parsed.services : INITIAL_PORTFOLIO_DATA.services,
+          projects: Array.isArray(parsed?.projects) ? parsed.projects : INITIAL_PORTFOLIO_DATA.projects,
+          experience: Array.isArray(parsed?.experience) ? parsed.experience : INITIAL_PORTFOLIO_DATA.experience,
+          education: Array.isArray(parsed?.education) ? parsed.education : INITIAL_PORTFOLIO_DATA.education,
+          books: Array.isArray(parsed?.books) ? parsed.books : INITIAL_PORTFOLIO_DATA.books,
+          articles: Array.isArray(parsed?.articles)
             ? parsed.articles.filter((a: any) => !a.isBook)
             : INITIAL_PORTFOLIO_DATA.articles,
-          gallery: Array.isArray(parsed?.gallery) && parsed.gallery.length > 0 ? parsed.gallery : INITIAL_PORTFOLIO_DATA.gallery,
+          gallery: Array.isArray(parsed?.gallery) ? parsed.gallery : INITIAL_PORTFOLIO_DATA.gallery,
           messages: Array.isArray(parsed?.messages) ? parsed.messages : [],
           adminPin: parsed?.adminPassword || parsed?.adminPin || INITIAL_PORTFOLIO_DATA.adminPin || '1234',
           adminPassword: parsed?.adminPassword || parsed?.adminPin || INITIAL_PORTFOLIO_DATA.adminPassword || '1234',
@@ -199,7 +199,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(null);
 
-  const syncNow = async (): Promise<{ success: boolean; message: string }> => {
+  const syncNow = async (overrideData?: PortfolioData): Promise<{ success: boolean; message: string }> => {
+    const dataToSync = overrideData || data;
     if (!isSupabaseConfigured()) {
       setCloudSyncStatus('not_configured');
       const msg = 'Supabase is not configured yet in this browser. Please configure credentials in Supabase tab.';
@@ -209,7 +210,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCloudSyncStatus('syncing');
     setCloudSyncError(null);
     try {
-      const res = await syncDataToSupabase(data);
+      const res = await syncDataToSupabase(dataToSync);
       if (res.success) {
         setCloudSyncStatus('synced');
         setLastCloudSyncTime(new Date().toLocaleTimeString());
@@ -318,14 +319,14 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               ...prev,
               ...cloud,
               profile: { ...prev.profile, ...(cloud.profile || {}) },
-              metrics: cloud.metrics?.length ? cloud.metrics : prev.metrics,
-              skills: cloud.skills?.length ? cloud.skills : prev.skills,
-              projects: cloud.projects?.length ? cloud.projects : prev.projects,
-              experience: cloud.experience?.length ? cloud.experience : prev.experience,
-              education: cloud.education?.length ? cloud.education : prev.education,
-              articles: cloud.articles?.length ? cloud.articles : prev.articles,
-              books: cloud.books?.length ? cloud.books : prev.books,
-              gallery: cloud.gallery?.length ? cloud.gallery : prev.gallery,
+              metrics: Array.isArray(cloud.metrics) ? cloud.metrics : prev.metrics,
+              skills: Array.isArray(cloud.skills) ? cloud.skills : prev.skills,
+              projects: Array.isArray(cloud.projects) ? cloud.projects : prev.projects,
+              experience: Array.isArray(cloud.experience) ? cloud.experience : prev.experience,
+              education: Array.isArray(cloud.education) ? cloud.education : prev.education,
+              articles: Array.isArray(cloud.articles) ? cloud.articles : prev.articles,
+              books: Array.isArray(cloud.books) ? cloud.books : prev.books,
+              gallery: Array.isArray(cloud.gallery) ? cloud.gallery : prev.gallery,
             };
           });
         }
@@ -415,132 +416,170 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // Helper to persist locally and sync to Supabase immediately
+  const persistAndSync = async (nextData: PortfolioData): Promise<{ success: boolean; message: string }> => {
+    setData(nextData);
+    safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    if (isSupabaseConfigured()) {
+      return await syncNow(nextData);
+    }
+    return { success: true, message: 'Saved locally' };
+  };
+
   const updateProfile = (profile: ProfileData) => {
-    setData(prev => ({ ...prev, profile }));
+    const nextData = { ...data, profile };
+    setData(nextData);
+    safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    if (isSupabaseConfigured()) {
+      syncNow(nextData);
+    }
   };
 
   const updateMetrics = (metrics: MetricItem[]) => {
-    setData(prev => ({ ...prev, metrics }));
+    const nextData = { ...data, metrics };
+    setData(nextData);
+    safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    if (isSupabaseConfigured()) {
+      syncNow(nextData);
+    }
   };
 
   // Skills
   const addSkill = (skill: Omit<SkillItem, 'id'>) => {
     const newSkill: SkillItem = { ...skill, id: `sk-${Date.now()}` };
-    setData(prev => ({ ...prev, skills: [...prev.skills, newSkill] }));
+    const nextData = { ...data, skills: [...data.skills, newSkill] };
+    return persistAndSync(nextData);
   };
 
   const updateSkill = (id: string, updated: Partial<SkillItem>) => {
-    setData(prev => ({
-      ...prev,
-      skills: prev.skills.map(s => (s.id === id ? { ...s, ...updated } : s))
-    }));
+    const nextData = {
+      ...data,
+      skills: data.skills.map(s => (s.id === id ? { ...s, ...updated } : s))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteSkill = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      skills: prev.skills.filter(s => s.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      skills: data.skills.filter(s => s.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Projects
-  const addProject = (proj: Omit<ProjectItem, 'id'>) => {
+  const addProject = async (proj: Omit<ProjectItem, 'id'>) => {
     const newProj: ProjectItem = { ...proj, id: `proj-${Date.now()}` };
-    setData(prev => ({ ...prev, projects: [newProj, ...prev.projects] }));
+    const nextData = { ...data, projects: [newProj, ...data.projects] };
+    return await persistAndSync(nextData);
   };
 
-  const updateProject = (id: string, updated: Partial<ProjectItem>) => {
-    setData(prev => ({
-      ...prev,
-      projects: prev.projects.map(p => (p.id === id ? { ...p, ...updated } : p))
-    }));
+  const updateProject = async (id: string, updated: Partial<ProjectItem>) => {
+    const nextData = {
+      ...data,
+      projects: data.projects.map(p => (p.id === id ? { ...p, ...updated } : p))
+    };
+    return await persistAndSync(nextData);
   };
 
-  const deleteProject = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      projects: prev.projects.filter(p => p.id !== id)
-    }));
+  const deleteProject = async (id: string) => {
+    const nextData = {
+      ...data,
+      projects: data.projects.filter(p => p.id !== id)
+    };
+    return await persistAndSync(nextData);
   };
 
   // Experience
   const addExperience = (exp: Omit<ExperienceItem, 'id'>) => {
     const newExp: ExperienceItem = { ...exp, id: `exp-${Date.now()}` };
-    setData(prev => ({ ...prev, experience: [newExp, ...prev.experience] }));
+    const nextData = { ...data, experience: [newExp, ...data.experience] };
+    return persistAndSync(nextData);
   };
 
   const updateExperience = (id: string, updated: Partial<ExperienceItem>) => {
-    setData(prev => ({
-      ...prev,
-      experience: prev.experience.map(e => (e.id === id ? { ...e, ...updated } : e))
-    }));
+    const nextData = {
+      ...data,
+      experience: data.experience.map(e => (e.id === id ? { ...e, ...updated } : e))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteExperience = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      experience: prev.experience.filter(e => e.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      experience: data.experience.filter(e => e.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Education
   const addEducation = (edu: Omit<EducationItem, 'id'>) => {
     const newEdu: EducationItem = { ...edu, id: `edu-${Date.now()}` };
-    setData(prev => ({ ...prev, education: [...prev.education, newEdu] }));
+    const nextData = { ...data, education: [...data.education, newEdu] };
+    return persistAndSync(nextData);
   };
 
   const updateEducation = (id: string, updated: Partial<EducationItem>) => {
-    setData(prev => ({
-      ...prev,
-      education: prev.education.map(e => (e.id === id ? { ...e, ...updated } : e))
-    }));
+    const nextData = {
+      ...data,
+      education: data.education.map(e => (e.id === id ? { ...e, ...updated } : e))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteEducation = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      education: prev.education.filter(e => e.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      education: data.education.filter(e => e.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Services
   const addService = (srv: Omit<ServiceItem, 'id'>) => {
     const newSrv: ServiceItem = { ...srv, id: `srv-${Date.now()}` };
-    setData(prev => ({ ...prev, services: [...prev.services, newSrv] }));
+    const nextData = { ...data, services: [...data.services, newSrv] };
+    return persistAndSync(nextData);
   };
 
   const updateService = (id: string, updated: Partial<ServiceItem>) => {
-    setData(prev => ({
-      ...prev,
-      services: prev.services.map(s => (s.id === id ? { ...s, ...updated } : s))
-    }));
+    const nextData = {
+      ...data,
+      services: data.services.map(s => (s.id === id ? { ...s, ...updated } : s))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteService = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      services: prev.services.filter(s => s.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      services: data.services.filter(s => s.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Articles
   const addArticle = (art: Omit<ArticleItem, 'id'>) => {
     const newArt: ArticleItem = { ...art, id: `art-${Date.now()}` };
-    setData(prev => ({ ...prev, articles: [newArt, ...prev.articles] }));
+    const nextData = { ...data, articles: [newArt, ...data.articles] };
+    return persistAndSync(nextData);
   };
 
   const updateArticle = (id: string, updated: Partial<ArticleItem>) => {
-    setData(prev => ({
-      ...prev,
-      articles: prev.articles.map(a => (a.id === id ? { ...a, ...updated } : a))
-    }));
+    const nextData = {
+      ...data,
+      articles: data.articles.map(a => (a.id === id ? { ...a, ...updated } : a))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteArticle = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      articles: prev.articles.filter(a => a.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      articles: data.articles.filter(a => a.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Books
@@ -549,24 +588,24 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ...book,
       id: `book-${Date.now()}`
     };
-    setData(prev => ({
-      ...prev,
-      books: [newBook, ...(prev.books || [])]
-    }));
+    const nextData = { ...data, books: [newBook, ...(data.books || [])] };
+    return persistAndSync(nextData);
   };
 
   const updateBook = (id: string, updated: Partial<BookItem>) => {
-    setData(prev => ({
-      ...prev,
-      books: (prev.books || []).map(b => (b.id === id ? { ...b, ...updated } : b))
-    }));
+    const nextData = {
+      ...data,
+      books: (data.books || []).map(b => (b.id === id ? { ...b, ...updated } : b))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteBook = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      books: (prev.books || []).filter(b => b.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      books: (data.books || []).filter(b => b.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Gallery
@@ -575,24 +614,24 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ...item,
       id: `gal-${Date.now()}`
     };
-    setData(prev => ({
-      ...prev,
-      gallery: [newItem, ...(prev.gallery || [])]
-    }));
+    const nextData = { ...data, gallery: [newItem, ...(data.gallery || [])] };
+    return persistAndSync(nextData);
   };
 
   const updateGalleryItem = (id: string, updated: Partial<GalleryItem>) => {
-    setData(prev => ({
-      ...prev,
-      gallery: (prev.gallery || []).map(g => (g.id === id ? { ...g, ...updated } : g))
-    }));
+    const nextData = {
+      ...data,
+      gallery: (data.gallery || []).map(g => (g.id === id ? { ...g, ...updated } : g))
+    };
+    return persistAndSync(nextData);
   };
 
   const deleteGalleryItem = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      gallery: (prev.gallery || []).filter(g => g.id !== id)
-    }));
+    const nextData = {
+      ...data,
+      gallery: (data.gallery || []).filter(g => g.id !== id)
+    };
+    return persistAndSync(nextData);
   };
 
   // Messages

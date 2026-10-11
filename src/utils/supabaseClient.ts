@@ -26,8 +26,8 @@ export function getSupabaseConfig(): SupabaseConfig {
     // Ignore storage issues
   }
 
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL as string) || '';
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+  const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
 
   return {
     url: (savedConfig.url || envUrl || DEFAULT_SUPABASE_URL).trim(),

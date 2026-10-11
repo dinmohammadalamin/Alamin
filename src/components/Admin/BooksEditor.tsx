@@ -450,11 +450,7 @@ export const BooksEditor: React.FC = () => {
                 <Edit2 className="w-4 h-4" />
               </button>
               <button
-                onClick={() => {
-                  if (confirm(`Are you sure you want to remove "${book.title}"?`)) {
-                    deleteBook(book.id);
-                  }
-                }}
+                onClick={() => deleteBook(book.id)}
                 className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-800 transition-colors"
                 title="Delete Book"
               >
