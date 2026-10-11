@@ -12,11 +12,12 @@ import {
   Loader2
 } from 'lucide-react';
 
-const DESTINATION_EMAIL = 'dmaa357@gmail.com';
-
 export const ContactSection: React.FC = () => {
   const { data, sendMessage } = usePortfolio();
   const { profile } = data;
+  const contact = data.contact;
+
+  const destinationEmail = contact?.destinationEmail || profile.email || 'dmaa357@gmail.com';
 
   const [formState, setFormState] = useState({
     name: '',
@@ -52,9 +53,9 @@ export const ContactSection: React.FC = () => {
       message: clientMessage
     });
 
-    // 2. Dispatch real email via FormSubmit AJAX directly to dmaa357@gmail.com
+    // 2. Dispatch real email via FormSubmit AJAX directly to configured destinationEmail
     try {
-      await fetch(`https://formsubmit.co/ajax/${DESTINATION_EMAIL}`, {
+      await fetch(`https://formsubmit.co/ajax/${destinationEmail}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,32 +87,59 @@ export const ContactSection: React.FC = () => {
     }
   };
 
+  const phoneValue = contact?.phone || profile.phone;
+  const emailValue = contact?.email || profile.email;
+  const locationValue = contact?.location || profile.city || 'Rajshahi, Bangladesh';
+  const websiteValue = contact?.websiteDisplay || 'porfolioofdin.netlify.app';
+  const websiteHref = contact?.website || profile.website;
+
   const contactItems = [
     {
       icon: Phone,
-      title: 'Call / WhatsApp',
-      value: profile.phone,
-      href: `tel:${profile.phone}`
+      title: contact?.phoneTitle || 'Call / WhatsApp',
+      value: phoneValue,
+      href: `tel:${phoneValue}`
     },
     {
       icon: Mail,
-      title: 'Direct Email',
-      value: profile.email,
-      href: `mailto:${profile.email}`
+      title: contact?.emailTitle || 'Direct Email',
+      value: emailValue,
+      href: `mailto:${emailValue}`
     },
     {
       icon: MapPin,
-      title: 'Location',
-      value: profile.city || 'Rajshahi, Bangladesh',
+      title: contact?.locationTitle || 'Location',
+      value: locationValue,
       href: '#'
     },
     {
       icon: Globe,
-      title: 'Portfolio / Website',
-      value: 'porfolioofdin.netlify.app',
-      href: profile.website
+      title: contact?.websiteTitle || 'Portfolio / Website',
+      value: websiteValue,
+      href: websiteHref
     }
   ];
+
+  // Add any custom items if defined
+  if (contact?.customItems && contact.customItems.length > 0) {
+    contact.customItems.forEach(item => {
+      contactItems.push({
+        icon: item.type === 'email' ? Mail : item.type === 'location' ? MapPin : item.type === 'website' ? Globe : Phone,
+        title: item.title,
+        value: item.value,
+        href: item.href || '#'
+      });
+    });
+  }
+
+  const sectionBadge = contact?.badge || 'GET IN TOUCH';
+  const sectionTitle = contact?.title || "Let's Discuss Quality & Engineering";
+  const sectionSubtitle = contact?.subtitle || 'Whether you need a dedicated SQA engineer, test automation framework architecture, or quality consultation, I am ready to collaborate.';
+  const cardTitle = contact?.cardTitle || 'Contact Information';
+  const cardSubtitle = contact?.cardSubtitle || 'Feel free to reach out via phone, email, or by leaving a direct message here. I respond promptly to all inquiries.';
+  const formTitle = contact?.formTitle || 'Send a Direct Message';
+  const formSubtitle = contact?.formSubtitle || 'Have a project, job opportunity, or QA consultation in mind? Leave your message below.';
+  const availabilityNote = contact?.availabilityNote || `Current Status: ${profile.freelanceStatus || 'Open for SQA Engineering Roles'}. Response time is typically within 2-4 hours.`;
 
   return (
     <section id="contact" className="py-20 bg-slate-900/40 relative">
@@ -120,13 +148,13 @@ export const ContactSection: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-3">
-            <span>GET IN TOUCH</span>
+            <span>{sectionBadge}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
-            Let's Discuss Quality & Engineering
+            {sectionTitle}
           </h2>
           <p className="mt-3 text-slate-400 max-w-xl text-sm">
-            Whether you need a dedicated SQA engineer, test automation framework architecture, or quality consultation, I am ready to collaborate.
+            {sectionSubtitle}
           </p>
           <div className="w-16 h-1 bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full mt-4" />
         </div>
@@ -136,10 +164,10 @@ export const ContactSection: React.FC = () => {
           {/* Left Column: Contact Cards */}
           <div className="lg:col-span-5 space-y-4">
             <h3 className="text-xl font-bold text-white mb-2">
-              Contact Information
+              {cardTitle}
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed mb-6">
-              Feel free to reach out via phone, email, or by leaving a direct message here. I respond promptly to all inquiries.
+              {cardSubtitle}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3.5">
@@ -171,7 +199,7 @@ export const ContactSection: React.FC = () => {
             <div className="mt-6 p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 text-xs text-emerald-300 flex items-start gap-3">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <strong>Current Status:</strong> {profile.freelanceStatus || 'Open for SQA Engineering Roles'}. Response time is typically within 2-4 hours.
+                {availabilityNote}
               </div>
             </div>
           </div>
@@ -181,10 +209,10 @@ export const ContactSection: React.FC = () => {
             <div className="p-6 md:p-8 rounded-3xl bg-slate-950 border border-slate-800 shadow-xl relative">
               <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-emerald-400" />
-                <span>Send a Direct Message</span>
+                <span>{formTitle}</span>
               </h3>
               <p className="text-xs text-slate-400 mb-6">
-                Have a project, job opportunity, or QA consultation in mind? Leave your message below.
+                {formSubtitle}
               </p>
 
               {submitted && (
@@ -195,7 +223,7 @@ export const ContactSection: React.FC = () => {
                       Thank you{lastSenderName ? `, ${lastSenderName}` : ''}! Your message has been sent successfully.
                     </span>
                     <p className="text-slate-300 mt-1 leading-relaxed">
-                      Your inquiry has been delivered directly to Din Mohammad Alamin. A response will be sent to your email address shortly.
+                      Your inquiry has been delivered directly to {profile.name || 'Din Mohammad'}. A response will be sent to your email address shortly.
                     </p>
                   </div>
                 </div>

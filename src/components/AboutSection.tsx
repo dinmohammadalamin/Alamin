@@ -17,12 +17,33 @@ import {
 export const AboutSection: React.FC = () => {
   const { data, openCvModal } = usePortfolio();
   const { profile } = data;
+  const about = data.about;
+
+  const roleDisplay = about?.roleLabel || 'SQA Engineer (L-1) @ DevxHub';
+  const educationDisplay = about?.educationLabel || 'Masters in Eng & B.Sc in CSE';
+  const locationBadge = about?.locationBadge || 'Rajshahi / Remote';
+  const sectionBadge = about?.badge || 'GET TO KNOW ME';
+  const sectionTitle = about?.sectionTitle || `About ${profile.name || 'Din Mohammad'}`;
+  const headline = about?.headline || 'Passionate SQA Engineer, CSE Graduate & Tech Enthusiast';
+  const story = about?.storyText || profile.aboutLong || profile.bio;
+  const principlesTitle = about?.principlesTitle || 'My Core Quality Assurance Principles';
+  const principlesList = about?.principles && about.principles.length > 0 ? about.principles : [
+    { id: 'p-1', title: 'Shift-Left Testing', description: 'Preventing bugs early in requirements and design.' },
+    { id: 'p-2', title: 'Maintainable Automation', description: 'Robust Page Object Models over fragile scripts.' },
+    { id: 'p-3', title: 'API-First Validation', description: 'Testing contracts, latency, and boundary limits.' },
+    { id: 'p-4', title: 'Clear Bug Lifecycle', description: 'Flawless Jira tickets with reproducible logs and video.' },
+  ];
+  const authorCard = about?.authorCard || {
+    show: true,
+    title: 'Published Author of "Ononto Parapar"',
+    description: 'Published at the prestigious 2025 Omor Ekushe Book Fair by Durbin Publication. The meticulous discipline and emotional conciseness required in micro-poetry deeply mirror my focus on edge cases, code aesthetics, and rigorous software verification.'
+  };
 
   const infoGrid = [
     { label: 'Name', value: profile.name, icon: User },
-    { label: 'Role', value: 'SQA Engineer (L-1) @ DevxHub', icon: Briefcase },
+    { label: 'Role', value: roleDisplay, icon: Briefcase },
     { label: 'Location', value: profile.address || profile.city || 'Rajshahi, Bangladesh', icon: MapPin },
-    { label: 'Education', value: 'Masters in Eng & B.Sc in CSE', icon: GraduationCap },
+    { label: 'Education', value: educationDisplay, icon: GraduationCap },
     { label: 'Email', value: profile.email, icon: Mail, isEmail: true },
     { label: 'Phone', value: profile.phone, icon: Phone },
     { label: 'Birthday', value: profile.birthday, icon: Calendar },
@@ -36,10 +57,10 @@ export const AboutSection: React.FC = () => {
         {/* Section Header */}
         <div className="flex flex-col items-center text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-3">
-            <span>GET TO KNOW ME</span>
+            <span>{sectionBadge}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
-            About Din Mohammad
+            {sectionTitle}
           </h2>
           <div className="w-16 h-1 bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full mt-3" />
         </div>
@@ -48,51 +69,45 @@ export const AboutSection: React.FC = () => {
           {/* Left Column: Story & Philosophy */}
           <div className="lg:col-span-7 space-y-6">
             <h3 className="text-2xl font-bold text-slate-100">
-              Passionate SQA Engineer, CSE Graduate & Tech Enthusiast
+              {headline}
             </h3>
 
-            <p className="text-slate-300 leading-relaxed text-base">
-              {profile.aboutLong || profile.bio}
+            <p className="text-slate-300 leading-relaxed text-base whitespace-pre-line">
+              {story}
             </p>
 
-            <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-              <h4 className="text-sm font-bold font-mono text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" /> My Core Quality Assurance Principles
-              </h4>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-300">
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong>Shift-Left Testing:</strong> Preventing bugs early in requirements and design.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong>Maintainable Automation:</strong> Robust Page Object Models over fragile scripts.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong>API-First Validation:</strong> Testing contracts, latency, and boundary limits.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong>Clear Bug Lifecycle:</strong> Flawless Jira tickets with reproducible logs and video.</span>
-                </li>
-              </ul>
-            </div>
+            {principlesList.length > 0 && (
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+                <h4 className="text-sm font-bold font-mono text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" /> {principlesTitle}
+                </h4>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-300">
+                  {principlesList.map(item => (
+                    <li key={item.id || item.title} className="flex items-start gap-2">
+                      <span className="text-emerald-400 font-bold">•</span>
+                      <span><strong>{item.title}:</strong> {item.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Author highlight card */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-950/40 via-slate-900 to-slate-900 border border-teal-500/30 flex items-start gap-3.5">
-              <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400 shrink-0">
-                <BookOpen className="w-5 h-5" />
+            {authorCard.show && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-950/40 via-slate-900 to-slate-900 border border-teal-500/30 flex items-start gap-3.5">
+                <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400 shrink-0">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-200">
+                    {authorCard.title}
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    {authorCard.description}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-sm font-semibold text-slate-200">
-                  Published Author of "Ononto Parapar"
-                </h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Published at the prestigious <strong>2025 Omor Ekushe Book Fair</strong> by Durbin Publication. The meticulous discipline and emotional conciseness required in micro-poetry deeply mirror my focus on edge cases, code aesthetics, and rigorous software verification.
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column: Personal Info Card */}
@@ -100,7 +115,7 @@ export const AboutSection: React.FC = () => {
             <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-xl">
               <h4 className="text-lg font-bold text-white mb-4 pb-3 border-b border-slate-800 flex items-center justify-between">
                 <span>Personal Specifications</span>
-                <span className="text-xs font-mono text-emerald-400">Rajshahi / Remote</span>
+                <span className="text-xs font-mono text-emerald-400">{locationBadge}</span>
               </h4>
 
               <div className="divide-y divide-slate-800/80">
@@ -131,7 +146,7 @@ export const AboutSection: React.FC = () => {
                   href="#contact"
                   className="flex-1 text-center py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors shadow-md shadow-emerald-500/20"
                 >
-                  Hire Me / Work Together
+                  {about?.hireButtonText || 'Hire Me / Work Together'}
                 </a>
                 <button
                   onClick={openCvModal}
@@ -139,7 +154,7 @@ export const AboutSection: React.FC = () => {
                   title="View & Download Authentic SQA CV"
                 >
                   <FileDown className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>View CV</span>
+                  <span>{about?.cvButtonText || 'View CV'}</span>
                 </button>
               </div>
             </div>

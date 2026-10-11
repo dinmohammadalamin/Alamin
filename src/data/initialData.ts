@@ -48,6 +48,66 @@ export const INITIAL_PORTFOLIO_DATA: PortfolioData = {
       address: "Upashahar, A/254, P.O-Sopura, P.S-Boalia, Dist-Rajshahi"
     }
   },
+  about: {
+    badge: "GET TO KNOW ME",
+    sectionTitle: "About Din Mohammad",
+    headline: "Passionate SQA Engineer, CSE Graduate & Tech Enthusiast",
+    storyText: "I am a dedicated SQA Engineer and Writer based in Rajshahi, Bangladesh. Currently working at DevxHub Private Ltd. as an SQA Engineer (L-1), I conduct manual, UI, API, and automated testing across multi-tenant SaaS, ERP, e-commerce, and mobile platforms. I hold a Masters in Eng (CSE) from University of Rajshahi and B.Sc in CSE from Varendra University. Beyond engineering, I am a published author with Durbin Publication, having written the book 'Ononto Parapar' (published at Omor Ekushe Book Fair). My dual background in literature and computer science gives me an uncompromising eye for edge cases, clarity of test reporting, and systematic quality assurance.",
+    roleLabel: "SQA Engineer (L-1) @ DevxHub",
+    educationLabel: "Masters in Eng & B.Sc in CSE",
+    locationBadge: "Rajshahi / Remote",
+    principlesTitle: "My Core Quality Assurance Principles",
+    principles: [
+      {
+        id: "p-1",
+        title: "Shift-Left Testing",
+        description: "Preventing bugs early in requirements and design."
+      },
+      {
+        id: "p-2",
+        title: "Maintainable Automation",
+        description: "Robust Page Object Models over fragile scripts."
+      },
+      {
+        id: "p-3",
+        title: "API-First Validation",
+        description: "Testing contracts, latency, and boundary limits."
+      },
+      {
+        id: "p-4",
+        title: "Clear Bug Lifecycle",
+        description: "Flawless Jira tickets with reproducible logs and video."
+      }
+    ],
+    authorCard: {
+      show: true,
+      title: 'Published Author of "Ononto Parapar"',
+      description: "Published at the prestigious 2025 Omor Ekushe Book Fair by Durbin Publication. The meticulous discipline and emotional conciseness required in micro-poetry deeply mirror my focus on edge cases, code aesthetics, and rigorous software verification."
+    },
+    hireButtonText: "Hire Me / Work Together",
+    cvButtonText: "View CV"
+  },
+  contact: {
+    badge: "GET IN TOUCH",
+    title: "Let's Discuss Quality & Engineering",
+    subtitle: "Whether you need a dedicated SQA engineer, test automation framework architecture, or quality consultation, I am ready to collaborate.",
+    cardTitle: "Contact Information",
+    cardSubtitle: "Feel free to reach out via phone, email, or by leaving a direct message here. I respond promptly to all inquiries.",
+    phone: "+8801869309950",
+    phoneTitle: "Call / WhatsApp",
+    email: "dmaa357@gmail.com",
+    emailTitle: "Direct Email",
+    location: "Rajshahi, Bangladesh",
+    locationTitle: "Location",
+    website: "https://github.com/dinmohammadalamin",
+    websiteDisplay: "porfolioofdin.netlify.app",
+    websiteTitle: "Portfolio / Website",
+    availabilityNote: "Open for SQA Engineering Roles. Response time is typically within 2-4 hours.",
+    formTitle: "Send a Direct Message",
+    formSubtitle: "Have a project, job opportunity, or QA consultation in mind? Leave your message below.",
+    destinationEmail: "dmaa357@gmail.com",
+    customItems: []
+  },
   books: [
     {
       id: "book-1",

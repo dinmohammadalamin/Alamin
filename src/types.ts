@@ -162,8 +162,67 @@ export interface TestScenarioDemo {
   assertions: number;
 }
 
+export interface QaPrincipleItem {
+  id: string;
+  title: string;
+  description: string;
+}
+
+export interface AboutAuthorCard {
+  show: boolean;
+  title: string;
+  description: string;
+}
+
+export interface AboutSectionData {
+  badge: string;
+  sectionTitle: string;
+  headline: string;
+  storyText: string;
+  roleLabel: string;
+  educationLabel: string;
+  locationBadge: string;
+  principlesTitle: string;
+  principles: QaPrincipleItem[];
+  authorCard: AboutAuthorCard;
+  hireButtonText?: string;
+  cvButtonText?: string;
+}
+
+export interface ContactInfoItem {
+  id: string;
+  type: 'phone' | 'email' | 'location' | 'website' | 'whatsapp' | 'telegram' | 'other';
+  title: string;
+  value: string;
+  href?: string;
+}
+
+export interface ContactSectionData {
+  badge: string;
+  title: string;
+  subtitle: string;
+  cardTitle: string;
+  cardSubtitle: string;
+  phone: string;
+  phoneTitle?: string;
+  email: string;
+  emailTitle?: string;
+  location: string;
+  locationTitle?: string;
+  website: string;
+  websiteDisplay?: string;
+  websiteTitle?: string;
+  availabilityNote: string;
+  formTitle: string;
+  formSubtitle: string;
+  destinationEmail: string;
+  customItems?: ContactInfoItem[];
+}
+
 export interface PortfolioData {
   profile: ProfileData;
+  about?: AboutSectionData;
+  contact?: ContactSectionData;
   metrics: MetricItem[];
   skills: SkillItem[];
   services: ServiceItem[];

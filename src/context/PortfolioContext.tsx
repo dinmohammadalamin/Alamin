@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   PortfolioData,
   ProfileData,
+  AboutSectionData,
+  ContactSectionData,
   MetricItem,
   SkillItem,
   ProjectItem,
@@ -73,6 +75,8 @@ interface PortfolioContextType {
   
   // Updates
   updateProfile: (profile: ProfileData) => void;
+  updateAbout: (about: Partial<AboutSectionData>) => Promise<{ success: boolean; message: string }>;
+  updateContact: (contact: Partial<ContactSectionData>) => Promise<{ success: boolean; message: string }>;
   updateMetrics: (metrics: MetricItem[]) => void;
   
   // Skills
@@ -153,6 +157,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ...INITIAL_PORTFOLIO_DATA,
           ...parsed,
           profile: mergedProfile,
+          about: parsed?.about ? { ...INITIAL_PORTFOLIO_DATA.about, ...parsed.about } : INITIAL_PORTFOLIO_DATA.about,
+          contact: parsed?.contact ? { ...INITIAL_PORTFOLIO_DATA.contact, ...parsed.contact } : INITIAL_PORTFOLIO_DATA.contact,
           metrics: Array.isArray(parsed?.metrics) ? parsed.metrics : INITIAL_PORTFOLIO_DATA.metrics,
           skills: Array.isArray(parsed?.skills) ? parsed.skills : INITIAL_PORTFOLIO_DATA.skills,
           services: Array.isArray(parsed?.services) ? parsed.services : INITIAL_PORTFOLIO_DATA.services,
@@ -174,6 +180,12 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return INITIAL_PORTFOLIO_DATA;
   });
+
+  // Reference always containing the latest data to avoid stale closures in async handlers
+  const dataRef = useRef<PortfolioData>(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
@@ -200,7 +212,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(null);
 
   const syncNow = async (overrideData?: PortfolioData): Promise<{ success: boolean; message: string }> => {
-    const dataToSync = overrideData || data;
+    const dataToSync = overrideData || dataRef.current;
     if (!isSupabaseConfigured()) {
       setCloudSyncStatus('not_configured');
       const msg = 'Supabase is not configured yet in this browser. Please configure credentials in Supabase tab.';
@@ -319,9 +331,11 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               ...prev,
               ...cloud,
               profile: { ...prev.profile, ...(cloud.profile || {}) },
+              about: cloud.about ? { ...(prev.about || INITIAL_PORTFOLIO_DATA.about), ...cloud.about } : (prev.about || INITIAL_PORTFOLIO_DATA.about),
+              contact: cloud.contact ? { ...(prev.contact || INITIAL_PORTFOLIO_DATA.contact), ...cloud.contact } : (prev.contact || INITIAL_PORTFOLIO_DATA.contact),
               metrics: Array.isArray(cloud.metrics) ? cloud.metrics : prev.metrics,
               skills: Array.isArray(cloud.skills) ? cloud.skills : prev.skills,
-              projects: Array.isArray(cloud.projects) ? cloud.projects : prev.projects,
+              projects: Array.isArray(cloud.projects) && cloud.projects.length > 0 ? cloud.projects : (prev.projects && prev.projects.length > 0 ? prev.projects : INITIAL_PORTFOLIO_DATA.projects),
               experience: Array.isArray(cloud.experience) ? cloud.experience : prev.experience,
               education: Array.isArray(cloud.education) ? cloud.education : prev.education,
               articles: Array.isArray(cloud.articles) ? cloud.articles : prev.articles,
@@ -369,7 +383,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (isAuthenticated) {
       setCloudSyncStatus('syncing');
       const timer = setTimeout(() => {
-        syncDataToSupabase(data)
+        syncDataToSupabase(dataRef.current)
           .then(res => {
             if (res.success) {
               setCloudSyncStatus('synced');
@@ -418,6 +432,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Helper to persist locally and sync to Supabase immediately
   const persistAndSync = async (nextData: PortfolioData): Promise<{ success: boolean; message: string }> => {
+    dataRef.current = nextData;
     setData(nextData);
     safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
     if (isSupabaseConfigured()) {
@@ -427,42 +442,73 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateProfile = (profile: ProfileData) => {
-    const nextData = { ...data, profile };
-    setData(nextData);
-    safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
-    if (isSupabaseConfigured()) {
-      syncNow(nextData);
-    }
+    const nextData = { ...dataRef.current, profile };
+    persistAndSync(nextData);
+  };
+
+  const updateAbout = async (aboutUpdate: Partial<AboutSectionData>): Promise<{ success: boolean; message: string }> => {
+    const currentAbout = dataRef.current.about || INITIAL_PORTFOLIO_DATA.about!;
+    const nextData: PortfolioData = {
+      ...dataRef.current,
+      about: {
+        ...currentAbout,
+        ...aboutUpdate
+      }
+    };
+    return await persistAndSync(nextData);
+  };
+
+  const updateContact = async (contactUpdate: Partial<ContactSectionData>): Promise<{ success: boolean; message: string }> => {
+    const currentContact = dataRef.current.contact || INITIAL_PORTFOLIO_DATA.contact!;
+    const nextContact: ContactSectionData = {
+      ...currentContact,
+      ...contactUpdate
+    };
+
+    // Keep profile fields synchronized with contact changes
+    const updatedProfile = {
+      ...dataRef.current.profile,
+      ...(contactUpdate.phone ? { phone: contactUpdate.phone } : {}),
+      ...(contactUpdate.email ? { email: contactUpdate.email } : {}),
+      ...(contactUpdate.location ? { city: contactUpdate.location } : {}),
+      ...(contactUpdate.website ? { website: contactUpdate.website } : {}),
+      ...(contactUpdate.availabilityNote ? { freelanceStatus: contactUpdate.availabilityNote } : {}),
+    };
+
+    const nextData: PortfolioData = {
+      ...dataRef.current,
+      profile: updatedProfile,
+      contact: nextContact
+    };
+    return await persistAndSync(nextData);
   };
 
   const updateMetrics = (metrics: MetricItem[]) => {
-    const nextData = { ...data, metrics };
-    setData(nextData);
-    safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
-    if (isSupabaseConfigured()) {
-      syncNow(nextData);
-    }
+    const nextData = { ...dataRef.current, metrics };
+    persistAndSync(nextData);
   };
 
   // Skills
   const addSkill = (skill: Omit<SkillItem, 'id'>) => {
     const newSkill: SkillItem = { ...skill, id: `sk-${Date.now()}` };
-    const nextData = { ...data, skills: [...data.skills, newSkill] };
+    const nextData = { ...dataRef.current, skills: [...dataRef.current.skills, newSkill] };
     return persistAndSync(nextData);
   };
 
   const updateSkill = (id: string, updated: Partial<SkillItem>) => {
+    const targetId = String(id).trim();
     const nextData = {
-      ...data,
-      skills: data.skills.map(s => (s.id === id ? { ...s, ...updated } : s))
+      ...dataRef.current,
+      skills: dataRef.current.skills.map(s => (String(s.id).trim() === targetId ? { ...s, ...updated } : s))
     };
     return persistAndSync(nextData);
   };
 
   const deleteSkill = (id: string) => {
+    const targetId = String(id).trim();
     const nextData = {
-      ...data,
-      skills: data.skills.filter(s => s.id !== id)
+      ...dataRef.current,
+      skills: dataRef.current.skills.filter(s => String(s.id).trim() !== targetId)
     };
     return persistAndSync(nextData);
   };
@@ -470,22 +516,24 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Projects
   const addProject = async (proj: Omit<ProjectItem, 'id'>) => {
     const newProj: ProjectItem = { ...proj, id: `proj-${Date.now()}` };
-    const nextData = { ...data, projects: [newProj, ...data.projects] };
+    const nextData = { ...dataRef.current, projects: [newProj, ...dataRef.current.projects] };
     return await persistAndSync(nextData);
   };
 
   const updateProject = async (id: string, updated: Partial<ProjectItem>) => {
+    const targetId = String(id).trim();
     const nextData = {
-      ...data,
-      projects: data.projects.map(p => (p.id === id ? { ...p, ...updated } : p))
+      ...dataRef.current,
+      projects: dataRef.current.projects.map(p => (String(p.id).trim() === targetId ? { ...p, ...updated } : p))
     };
     return await persistAndSync(nextData);
   };
 
   const deleteProject = async (id: string) => {
+    const targetId = String(id).trim();
     const nextData = {
-      ...data,
-      projects: data.projects.filter(p => p.id !== id)
+      ...dataRef.current,
+      projects: dataRef.current.projects.filter(p => String(p.id).trim() !== targetId)
     };
     return await persistAndSync(nextData);
   };
@@ -717,6 +765,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         loginAdmin,
         logoutAdmin,
         updateProfile,
+        updateAbout,
+        updateContact,
         updateMetrics,
         addSkill,
         updateSkill,

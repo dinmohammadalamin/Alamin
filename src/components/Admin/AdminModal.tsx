@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { ProfileEditor } from './ProfileEditor';
+import { AboutEditor } from './AboutEditor';
+import { ContactEditor } from './ContactEditor';
 import { SkillsEditor } from './SkillsEditor';
 import { ProjectsEditor } from './ProjectsEditor';
 import { ExperienceEditor } from './ExperienceEditor';
@@ -38,6 +40,8 @@ import {
 type AdminTab =
   | 'overview'
   | 'profile'
+  | 'about'
+  | 'contact'
   | 'skills'
   | 'projects'
   | 'experience'
@@ -245,6 +249,30 @@ export const AdminModal: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setActiveTab('about')}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'about'
+                    ? 'bg-emerald-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>About Section</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('contact')}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'contact'
+                    ? 'bg-emerald-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Mail className="w-4 h-4" />
+                <span>Contact Info</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('skills')}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
                   activeTab === 'skills'
@@ -417,13 +445,29 @@ export const AdminModal: React.FC = () => {
                       Quick Management Actions
                     </h4>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                       <button
                         onClick={() => setActiveTab('profile')}
                         className="p-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-left transition-colors"
                       >
                         <div className="font-bold text-white text-xs">Edit Bio & Photo</div>
                         <div className="text-[11px] text-slate-400 mt-0.5">Upload picture and update hero bio</div>
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab('about')}
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-left transition-colors"
+                      >
+                        <div className="font-bold text-white text-xs">Edit About Section</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">Headlines, QA principles, specs</div>
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab('contact')}
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-left transition-colors"
+                      >
+                        <div className="font-bold text-white text-xs">Edit Contact Info</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">Phone, email, form destination</div>
                       </button>
 
                       <button
@@ -446,8 +490,8 @@ export const AdminModal: React.FC = () => {
                         onClick={() => setActiveTab('projects')}
                         className="p-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-left transition-colors"
                       >
-                        <div className="font-bold text-white text-xs">Add New Project</div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">Publish test suite case studies</div>
+                        <div className="font-bold text-white text-xs">Manage Projects</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">Add, edit & delete projects</div>
                       </button>
                     </div>
                   </div>
@@ -524,6 +568,8 @@ export const AdminModal: React.FC = () => {
               )}
 
               {activeTab === 'profile' && <ProfileEditor />}
+              {activeTab === 'about' && <AboutEditor />}
+              {activeTab === 'contact' && <ContactEditor />}
               {activeTab === 'skills' && <SkillsEditor />}
               {activeTab === 'projects' && <ProjectsEditor />}
               {activeTab === 'experience' && <ExperienceEditor />}
